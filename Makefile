@@ -153,6 +153,30 @@ src/main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/warehouse_sim.dir/build.make CMakeFiles/warehouse_sim.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
+src/pathfinder.o: src/pathfinder.cpp.o
+.PHONY : src/pathfinder.o
+
+# target to build an object file
+src/pathfinder.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/warehouse_sim.dir/build.make CMakeFiles/warehouse_sim.dir/src/pathfinder.cpp.o
+.PHONY : src/pathfinder.cpp.o
+
+src/pathfinder.i: src/pathfinder.cpp.i
+.PHONY : src/pathfinder.i
+
+# target to preprocess a source file
+src/pathfinder.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/warehouse_sim.dir/build.make CMakeFiles/warehouse_sim.dir/src/pathfinder.cpp.i
+.PHONY : src/pathfinder.cpp.i
+
+src/pathfinder.s: src/pathfinder.cpp.s
+.PHONY : src/pathfinder.s
+
+# target to generate assembly for a file
+src/pathfinder.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/warehouse_sim.dir/build.make CMakeFiles/warehouse_sim.dir/src/pathfinder.cpp.s
+.PHONY : src/pathfinder.cpp.s
+
 src/robot.o: src/robot.cpp.o
 .PHONY : src/robot.o
 
@@ -213,6 +237,9 @@ help:
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/pathfinder.o"
+	@echo "... src/pathfinder.i"
+	@echo "... src/pathfinder.s"
 	@echo "... src/robot.o"
 	@echo "... src/robot.i"
 	@echo "... src/robot.s"

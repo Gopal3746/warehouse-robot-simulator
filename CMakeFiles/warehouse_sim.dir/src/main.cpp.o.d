@@ -978,6 +978,7 @@ CMakeFiles/warehouse_sim.dir/src/main.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/stack \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/print \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/unistd.h \
-  /Users/gopalkamineni/Downloads/warehouse-robot-simulator/include/robot.hpp \
+  /Users/gopalkamineni/Downloads/warehouse-robot-simulator/include/pathfinder.hpp \
   /Users/gopalkamineni/Downloads/warehouse-robot-simulator/include/position.hpp \
-  /Users/gopalkamineni/Downloads/warehouse-robot-simulator/include/warehouse.hpp
+  /Users/gopalkamineni/Downloads/warehouse-robot-simulator/include/warehouse.hpp \
+  /Users/gopalkamineni/Downloads/warehouse-robot-simulator/include/robot.hpp

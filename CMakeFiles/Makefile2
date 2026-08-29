@@ -85,12 +85,12 @@ clean: CMakeFiles/warehouse_sim.dir/clean
 CMakeFiles/warehouse_sim.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/warehouse_sim.dir/build.make CMakeFiles/warehouse_sim.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/warehouse_sim.dir/build.make CMakeFiles/warehouse_sim.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/gopalkamineni/Downloads/warehouse-robot-simulator/build/CMakeFiles --progress-num=1,2,3,4 "Built target warehouse_sim"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/gopalkamineni/Downloads/warehouse-robot-simulator/build/CMakeFiles --progress-num=1,2,3,4,5 "Built target warehouse_sim"
 .PHONY : CMakeFiles/warehouse_sim.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/warehouse_sim.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/gopalkamineni/Downloads/warehouse-robot-simulator/build/CMakeFiles 4
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/gopalkamineni/Downloads/warehouse-robot-simulator/build/CMakeFiles 5
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/warehouse_sim.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /Users/gopalkamineni/Downloads/warehouse-robot-simulator/build/CMakeFiles 0
 .PHONY : CMakeFiles/warehouse_sim.dir/rule
@@ -102,7 +102,7 @@ warehouse_sim: CMakeFiles/warehouse_sim.dir/rule
 # codegen rule for target.
 CMakeFiles/warehouse_sim.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/warehouse_sim.dir/build.make CMakeFiles/warehouse_sim.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/gopalkamineni/Downloads/warehouse-robot-simulator/build/CMakeFiles --progress-num=1,2,3,4 "Finished codegen for target warehouse_sim"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/gopalkamineni/Downloads/warehouse-robot-simulator/build/CMakeFiles --progress-num=1,2,3,4,5 "Finished codegen for target warehouse_sim"
 .PHONY : CMakeFiles/warehouse_sim.dir/codegen
 
 # clean rule for target.

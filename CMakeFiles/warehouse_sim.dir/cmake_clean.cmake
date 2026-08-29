@@ -1,6 +1,8 @@
 file(REMOVE_RECURSE
   "CMakeFiles/warehouse_sim.dir/src/main.cpp.o"
   "CMakeFiles/warehouse_sim.dir/src/main.cpp.o.d"
+  "CMakeFiles/warehouse_sim.dir/src/pathfinder.cpp.o"
+  "CMakeFiles/warehouse_sim.dir/src/pathfinder.cpp.o.d"
   "CMakeFiles/warehouse_sim.dir/src/robot.cpp.o"
   "CMakeFiles/warehouse_sim.dir/src/robot.cpp.o.d"
   "CMakeFiles/warehouse_sim.dir/src/warehouse.cpp.o"
