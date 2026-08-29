@@ -1,0 +1,3 @@
+/Users/gopalkamineni/Downloads/warehouse-robot-simulator/build/CMakeFiles/warehouse_sim.dir
+/Users/gopalkamineni/Downloads/warehouse-robot-simulator/build/CMakeFiles/edit_cache.dir
+/Users/gopalkamineni/Downloads/warehouse-robot-simulator/build/CMakeFiles/rebuild_cache.dir
