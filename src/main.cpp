@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 
+#include "dispatcher.hpp"
 #include "pathfinder.hpp"
 #include "robot.hpp"
 #include "task.hpp"
@@ -48,7 +49,11 @@ int main() {
     warehouse.addObstacle({2, 3});
     warehouse.addObstacle({3, 5});
 
-    Robot robot(1, {0, 0});
+    std::vector<Robot> robots = {
+        Robot(1, {0, 0}),
+        Robot(2, {4, 7}),
+        Robot(3, {3, 0})
+    };
 
     Task task{
         1,
@@ -57,6 +62,25 @@ int main() {
     };
 
     std::cout << "Warehouse Robot Simulator\n";
+
+    int selectedRobotIndex =
+        findBestRobot(
+            robots,
+            warehouse,
+            task
+        );
+
+    if (selectedRobotIndex == -1) {
+        std::cout << "\nNo available robot can reach the pickup.\n";
+        return 1;
+    }
+
+    Robot& robot = robots[selectedRobotIndex];
+
+    std::cout
+        << "\nDispatcher selected Robot "
+        << robot.getId()
+        << ".\n";
 
     std::cout
         << "\nTask "

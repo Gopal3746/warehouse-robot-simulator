@@ -11,6 +11,7 @@ add_executable(
     src/warehouse.cpp
     src/robot.cpp
     src/pathfinder.cpp
+    src/dispatcher.cpp
 )
 
 target_include_directories(
