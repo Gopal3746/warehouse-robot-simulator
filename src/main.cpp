@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <iostream>
+#include <queue>
 #include <vector>
 
 #include "dispatcher.hpp"
@@ -41,67 +42,14 @@ bool executePath(
     return true;
 }
 
-int main() {
-    Warehouse warehouse(5, 8);
-
-    warehouse.addObstacle({1, 2});
-    warehouse.addObstacle({1, 3});
-    warehouse.addObstacle({2, 3});
-    warehouse.addObstacle({3, 5});
-
-    std::vector<Robot> robots = {
-        Robot(1, {0, 0}),
-        Robot(2, {4, 7}),
-        Robot(3, {3, 0})
-    };
-
-    Task task{
-        1,
-        {2, 6},
-        {4, 1}
-    };
-
-    std::cout << "Warehouse Robot Simulator\n";
-
-    int selectedRobotIndex =
-        findBestRobot(
-            robots,
-            warehouse,
-            task
-        );
-
-    if (selectedRobotIndex == -1) {
-        std::cout << "\nNo available robot can reach the pickup.\n";
-        return 1;
-    }
-
-    Robot& robot = robots[selectedRobotIndex];
-
-    std::cout
-        << "\nDispatcher selected Robot "
-        << robot.getId()
-        << ".\n";
-
-    std::cout
-        << "\nTask "
-        << task.id
-        << "\nPickup: ("
-        << task.pickup.row
-        << ", "
-        << task.pickup.col
-        << ")"
-        << "\nDropoff: ("
-        << task.dropoff.row
-        << ", "
-        << task.dropoff.col
-        << ")\n";
-
-    std::cout << "\nInitial warehouse:\n\n";
-
-    warehouse.print(
-        robot.getPosition(),
-        task.pickup
-    );
+bool executeTask(
+    Robot& robot,
+    const Warehouse& warehouse,
+    const Task& task
+) {
+    // -------------------------
+    // Travel to pickup
+    // -------------------------
 
     robot.setState(RobotState::MovingToPickup);
 
@@ -120,9 +68,21 @@ int main() {
         pickupPath,
         task.pickup
     )) {
-        std::cout << "\nCould not reach pickup location.\n";
-        return 1;
+        std::cout
+            << "\nRobot "
+            << robot.getId()
+            << " could not reach the pickup for Task "
+            << task.id
+            << ".\n";
+
+        robot.setState(RobotState::Idle);
+
+        return false;
     }
+
+    // -------------------------
+    // Pick up item
+    // -------------------------
 
     robot.setState(RobotState::Carrying);
 
@@ -132,6 +92,10 @@ int main() {
         << " picked up Task "
         << task.id
         << ".\n";
+
+    // -------------------------
+    // Travel to dropoff
+    // -------------------------
 
     robot.setState(RobotState::MovingToDropoff);
 
@@ -150,23 +114,152 @@ int main() {
         dropoffPath,
         task.dropoff
     )) {
-        std::cout << "\nCould not reach dropoff location.\n";
-        return 1;
+        std::cout
+            << "\nRobot "
+            << robot.getId()
+            << " could not reach the dropoff for Task "
+            << task.id
+            << ".\n";
+
+        robot.setState(RobotState::Idle);
+
+        return false;
     }
+
+    // -------------------------
+    // Task complete
+    // -------------------------
 
     robot.setState(RobotState::Idle);
 
     std::cout
         << "\nTask "
         << task.id
-        << " completed successfully.\n";
+        << " completed successfully by Robot "
+        << robot.getId()
+        << ".\n";
+
+    return true;
+}
+
+int main() {
+    Warehouse warehouse(5, 8);
+
+    warehouse.addObstacle({1, 2});
+    warehouse.addObstacle({1, 3});
+    warehouse.addObstacle({2, 3});
+    warehouse.addObstacle({3, 5});
+
+    std::vector<Robot> robots = {
+        Robot(1, {0, 0}),
+        Robot(2, {4, 7}),
+        Robot(3, {3, 0})
+    };
+
+    std::queue<Task> tasks;
+
+    tasks.push(Task{
+        1,
+        {2, 6},
+        {4, 1}
+    });
+
+    tasks.push(Task{
+        2,
+        {0, 7},
+        {3, 4}
+    });
+
+    tasks.push(Task{
+        3,
+        {4, 6},
+        {0, 1}
+    });
+
+    tasks.push(Task{
+        4,
+        {2, 0},
+        {4, 7}
+    });
+
+    std::cout << "Warehouse Robot Simulator\n";
+
+    while (!tasks.empty()) {
+        Task task = tasks.front();
+        tasks.pop();
+
+        std::cout
+            << "\n============================\n"
+            << "Task "
+            << task.id
+            << "\nPickup: ("
+            << task.pickup.row
+            << ", "
+            << task.pickup.col
+            << ")"
+            << "\nDropoff: ("
+            << task.dropoff.row
+            << ", "
+            << task.dropoff.col
+            << ")"
+            << "\n============================\n";
+
+        int selectedRobotIndex =
+            findBestRobot(
+                robots,
+                warehouse,
+                task
+            );
+
+        if (selectedRobotIndex == -1) {
+            std::cout
+                << "\nNo available robot can reach Task "
+                << task.id
+                << ". Skipping task.\n";
+
+            continue;
+        }
+
+        Robot& robot = robots[selectedRobotIndex];
+
+        std::cout
+            << "\nDispatcher selected Robot "
+            << robot.getId()
+            << ".\n";
+
+        std::cout << "\nCurrent warehouse:\n\n";
+
+        warehouse.print(
+            robot.getPosition(),
+            task.pickup
+        );
+
+        executeTask(
+            robot,
+            warehouse,
+            task
+        );
+    }
 
     std::cout
-        << "Robot "
-        << robot.getId()
-        << " is now "
-        << robotStateToString(robot.getState())
-        << ".\n";
+        << "\n============================\n"
+        << "Simulation complete\n"
+        << "============================\n";
+
+    for (const Robot& robot : robots) {
+        Position position = robot.getPosition();
+
+        std::cout
+            << "Robot "
+            << robot.getId()
+            << " | "
+            << robotStateToString(robot.getState())
+            << " | Final position ("
+            << position.row
+            << ", "
+            << position.col
+            << ")\n";
+    }
 
     return 0;
 }
