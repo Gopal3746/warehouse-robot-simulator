@@ -1,1 +1,0 @@
-/usr/bin/c++  -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/warehouse_sim.dir/src/main.cpp.o CMakeFiles/warehouse_sim.dir/src/warehouse.cpp.o CMakeFiles/warehouse_sim.dir/src/robot.cpp.o CMakeFiles/warehouse_sim.dir/src/pathfinder.cpp.o -o warehouse_sim
