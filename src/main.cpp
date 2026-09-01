@@ -9,51 +9,61 @@
 #include "task.hpp"
 #include "warehouse.hpp"
 
-bool executePath(
-    Robot& robot,
-    const Warehouse& warehouse,
-    const std::vector<Position>& path,
-    Position target
+
+struct RobotPlan {
+    bool active = false;
+
+    Task task{
+        -1,
+        {0, 0},
+        {0, 0}
+    };
+
+    std::vector<Position> pickupPath;
+    std::vector<Position> dropoffPath;
+
+    std::size_t nextStep = 1;
+};
+
+
+bool hasActivePlans(
+    const std::vector<RobotPlan>& plans
 ) {
-    if (path.empty()) {
+    for (const RobotPlan& plan : plans) {
+        if (plan.active) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
+bool assignNextTask(
+    std::queue<Task>& tasks,
+    std::vector<Robot>& robots,
+    std::vector<RobotPlan>& plans,
+    const Warehouse& warehouse
+) {
+    if (tasks.empty()) {
         return false;
     }
 
-    for (std::size_t i = 1; i < path.size(); i++) {
-        robot.moveTo(path[i]);
+    Task task = tasks.front();
 
-        std::cout
-            << "\nRobot "
-            << robot.getId()
-            << " | "
-            << robotStateToString(robot.getState())
-            << " | Position ("
-            << robot.getPosition().row
-            << ", "
-            << robot.getPosition().col
-            << ")\n\n";
-
-        warehouse.print(
-            robot.getPosition(),
-            target
+    int selectedRobotIndex =
+        findBestRobot(
+            robots,
+            warehouse,
+            task
         );
+
+    if (selectedRobotIndex == -1) {
+        return false;
     }
 
-    return true;
-}
-
-bool executeTask(
-    Robot& robot,
-    const Warehouse& warehouse,
-    const Task& task
-) {
-    // -------------------------
-    // Travel to pickup
-    // -------------------------
-
-    robot.setState(RobotState::MovingToPickup);
-
-    std::cout << "\nFinding path to pickup...\n";
+    Robot& robot = robots[selectedRobotIndex];
+    RobotPlan& plan = plans[selectedRobotIndex];
 
     std::vector<Position> pickupPath =
         findPath(
@@ -62,85 +72,201 @@ bool executeTask(
             task.pickup
         );
 
-    if (!executePath(
-        robot,
-        warehouse,
-        pickupPath,
-        task.pickup
-    )) {
-        std::cout
-            << "\nRobot "
-            << robot.getId()
-            << " could not reach the pickup for Task "
-            << task.id
-            << ".\n";
-
-        robot.setState(RobotState::Idle);
-
-        return false;
-    }
-
-    // -------------------------
-    // Pick up item
-    // -------------------------
-
-    robot.setState(RobotState::Carrying);
-
-    std::cout
-        << "\nRobot "
-        << robot.getId()
-        << " picked up Task "
-        << task.id
-        << ".\n";
-
-    // -------------------------
-    // Travel to dropoff
-    // -------------------------
-
-    robot.setState(RobotState::MovingToDropoff);
-
-    std::cout << "\nFinding path to dropoff...\n";
-
     std::vector<Position> dropoffPath =
         findPath(
             warehouse,
-            robot.getPosition(),
+            task.pickup,
             task.dropoff
         );
 
-    if (!executePath(
-        robot,
-        warehouse,
-        dropoffPath,
-        task.dropoff
-    )) {
+    if (pickupPath.empty() || dropoffPath.empty()) {
         std::cout
-            << "\nRobot "
-            << robot.getId()
-            << " could not reach the dropoff for Task "
+            << "Task "
             << task.id
-            << ".\n";
+            << " has no valid route. Removing task.\n";
 
-        robot.setState(RobotState::Idle);
+        tasks.pop();
 
-        return false;
+        return true;
     }
 
-    // -------------------------
-    // Task complete
-    // -------------------------
+    plan.active = true;
+    plan.task = task;
+    plan.pickupPath = pickupPath;
+    plan.dropoffPath = dropoffPath;
+    plan.nextStep = 1;
 
-    robot.setState(RobotState::Idle);
+    robot.setState(
+        RobotState::MovingToPickup
+    );
+
+    tasks.pop();
 
     std::cout
-        << "\nTask "
+        << "Dispatcher assigned Task "
         << task.id
-        << " completed successfully by Robot "
+        << " to Robot "
         << robot.getId()
         << ".\n";
 
     return true;
 }
+
+
+void advanceRobot(
+    Robot& robot,
+    RobotPlan& plan
+) {
+    if (!plan.active) {
+        return;
+    }
+
+    // -------------------------
+    // Move toward pickup
+    // -------------------------
+
+    if (
+        robot.getState() ==
+        RobotState::MovingToPickup
+    ) {
+        if (
+            plan.nextStep <
+            plan.pickupPath.size()
+        ) {
+            robot.moveTo(
+                plan.pickupPath[plan.nextStep]
+            );
+
+            plan.nextStep++;
+
+            std::cout
+                << "Robot "
+                << robot.getId()
+                << " moving to pickup for Task "
+                << plan.task.id
+                << " -> ("
+                << robot.getPosition().row
+                << ", "
+                << robot.getPosition().col
+                << ")\n";
+        }
+
+        if (
+            plan.nextStep >=
+            plan.pickupPath.size()
+        ) {
+            robot.setState(
+                RobotState::Carrying
+            );
+
+            std::cout
+                << "Robot "
+                << robot.getId()
+                << " picked up Task "
+                << plan.task.id
+                << ".\n";
+
+            robot.setState(
+                RobotState::MovingToDropoff
+            );
+
+            plan.nextStep = 1;
+        }
+
+        return;
+    }
+
+    // -------------------------
+    // Move toward dropoff
+    // -------------------------
+
+    if (
+        robot.getState() ==
+        RobotState::MovingToDropoff
+    ) {
+        if (
+            plan.nextStep <
+            plan.dropoffPath.size()
+        ) {
+            robot.moveTo(
+                plan.dropoffPath[plan.nextStep]
+            );
+
+            plan.nextStep++;
+
+            std::cout
+                << "Robot "
+                << robot.getId()
+                << " moving to dropoff for Task "
+                << plan.task.id
+                << " -> ("
+                << robot.getPosition().row
+                << ", "
+                << robot.getPosition().col
+                << ")\n";
+        }
+
+        if (
+            plan.nextStep >=
+            plan.dropoffPath.size()
+        ) {
+            std::cout
+                << "Robot "
+                << robot.getId()
+                << " completed Task "
+                << plan.task.id
+                << ".\n";
+
+            robot.setState(
+                RobotState::Idle
+            );
+
+            plan.active = false;
+            plan.nextStep = 1;
+        }
+    }
+}
+
+
+void printFleetStatus(
+    const std::vector<Robot>& robots,
+    const std::vector<RobotPlan>& plans
+) {
+    std::cout << "\nFleet status:\n";
+
+    for (
+        std::size_t i = 0;
+        i < robots.size();
+        i++
+    ) {
+        const Robot& robot = robots[i];
+
+        Position position =
+            robot.getPosition();
+
+        std::cout
+            << "Robot "
+            << robot.getId()
+            << " | "
+            << robotStateToString(
+                robot.getState()
+            )
+            << " | Position ("
+            << position.row
+            << ", "
+            << position.col
+            << ")";
+
+        if (plans[i].active) {
+            std::cout
+                << " | Task "
+                << plans[i].task.id;
+        }
+
+        std::cout << '\n';
+    }
+}
+
 
 int main() {
     Warehouse warehouse(5, 8);
@@ -155,6 +281,10 @@ int main() {
         Robot(2, {4, 7}),
         Robot(3, {3, 0})
     };
+
+    std::vector<RobotPlan> plans(
+        robots.size()
+    );
 
     std::queue<Task> tasks;
 
@@ -182,63 +312,54 @@ int main() {
         {4, 7}
     });
 
-    std::cout << "Warehouse Robot Simulator\n";
+    std::cout
+        << "Warehouse Robot Simulator\n"
+        << "Time-step coordination enabled\n";
 
-    while (!tasks.empty()) {
-        Task task = tasks.front();
-        tasks.pop();
+    int tick = 0;
 
+    while (
+        !tasks.empty() ||
+        hasActivePlans(plans)
+    ) {
         std::cout
             << "\n============================\n"
-            << "Task "
-            << task.id
-            << "\nPickup: ("
-            << task.pickup.row
-            << ", "
-            << task.pickup.col
-            << ")"
-            << "\nDropoff: ("
-            << task.dropoff.row
-            << ", "
-            << task.dropoff.col
-            << ")"
-            << "\n============================\n";
+            << "Tick "
+            << tick
+            << "\n"
+            << "============================\n";
 
-        int selectedRobotIndex =
-            findBestRobot(
+        // Assign as many tasks as possible
+        // to currently idle robots.
+        while (
+            assignNextTask(
+                tasks,
                 robots,
-                warehouse,
-                task
-            );
-
-        if (selectedRobotIndex == -1) {
-            std::cout
-                << "\nNo available robot can reach Task "
-                << task.id
-                << ". Skipping task.\n";
-
-            continue;
+                plans,
+                warehouse
+            )
+        ) {
         }
 
-        Robot& robot = robots[selectedRobotIndex];
+        // Every active robot advances
+        // exactly one step this tick.
+        for (
+            std::size_t i = 0;
+            i < robots.size();
+            i++
+        ) {
+            advanceRobot(
+                robots[i],
+                plans[i]
+            );
+        }
 
-        std::cout
-            << "\nDispatcher selected Robot "
-            << robot.getId()
-            << ".\n";
-
-        std::cout << "\nCurrent warehouse:\n\n";
-
-        warehouse.print(
-            robot.getPosition(),
-            task.pickup
+        printFleetStatus(
+            robots,
+            plans
         );
 
-        executeTask(
-            robot,
-            warehouse,
-            task
-        );
+        tick++;
     }
 
     std::cout
@@ -246,20 +367,10 @@ int main() {
         << "Simulation complete\n"
         << "============================\n";
 
-    for (const Robot& robot : robots) {
-        Position position = robot.getPosition();
-
-        std::cout
-            << "Robot "
-            << robot.getId()
-            << " | "
-            << robotStateToString(robot.getState())
-            << " | Final position ("
-            << position.row
-            << ", "
-            << position.col
-            << ")\n";
-    }
+    printFleetStatus(
+        robots,
+        plans
+    );
 
     return 0;
 }
