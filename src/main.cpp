@@ -1,6 +1,7 @@
 #include <cstddef>
 #include <iostream>
 #include <queue>
+#include <string>
 #include <vector>
 
 #include "dispatcher.hpp"
@@ -18,12 +19,16 @@ struct RobotPlan {
         {0, 0},
         {0, 0}
     };
-
-    std::vector<Position> pickupPath;
-    std::vector<Position> dropoffPath;
-
-    std::size_t nextStep = 1;
 };
+
+
+bool samePosition(
+    Position a,
+    Position b
+) {
+    return a.row == b.row &&
+           a.col == b.col;
+}
 
 
 bool hasActivePlans(
@@ -62,16 +67,6 @@ bool assignNextTask(
         return false;
     }
 
-    Robot& robot = robots[selectedRobotIndex];
-    RobotPlan& plan = plans[selectedRobotIndex];
-
-    std::vector<Position> pickupPath =
-        findPath(
-            warehouse,
-            robot.getPosition(),
-            task.pickup
-        );
-
     std::vector<Position> dropoffPath =
         findPath(
             warehouse,
@@ -79,22 +74,26 @@ bool assignNextTask(
             task.dropoff
         );
 
-    if (pickupPath.empty() || dropoffPath.empty()) {
+    if (dropoffPath.empty()) {
         std::cout
             << "Task "
             << task.id
-            << " has no valid route. Removing task.\n";
+            << " has no valid pickup-to-dropoff route. "
+            << "Removing task.\n";
 
         tasks.pop();
 
         return true;
     }
 
+    Robot& robot =
+        robots[selectedRobotIndex];
+
+    RobotPlan& plan =
+        plans[selectedRobotIndex];
+
     plan.active = true;
     plan.task = task;
-    plan.pickupPath = pickupPath;
-    plan.dropoffPath = dropoffPath;
-    plan.nextStep = 1;
 
     robot.setState(
         RobotState::MovingToPickup
@@ -113,7 +112,7 @@ bool assignNextTask(
 }
 
 
-void advanceRobot(
+void processArrival(
     Robot& robot,
     RobotPlan& plan
 ) {
@@ -121,110 +120,139 @@ void advanceRobot(
         return;
     }
 
-    // -------------------------
-    // Move toward pickup
-    // -------------------------
+    if (
+        robot.getState() ==
+            RobotState::MovingToPickup &&
+        samePosition(
+            robot.getPosition(),
+            plan.task.pickup
+        )
+    ) {
+        robot.setState(
+            RobotState::Carrying
+        );
 
+        std::cout
+            << "Robot "
+            << robot.getId()
+            << " picked up Task "
+            << plan.task.id
+            << ".\n";
+
+        robot.setState(
+            RobotState::MovingToDropoff
+        );
+    }
+
+    if (
+        robot.getState() ==
+            RobotState::MovingToDropoff &&
+        samePosition(
+            robot.getPosition(),
+            plan.task.dropoff
+        )
+    ) {
+        std::cout
+            << "Robot "
+            << robot.getId()
+            << " completed Task "
+            << plan.task.id
+            << ".\n";
+
+        robot.setState(
+            RobotState::Idle
+        );
+
+        plan.active = false;
+    }
+}
+
+
+Position getTarget(
+    const Robot& robot,
+    const RobotPlan& plan
+) {
     if (
         robot.getState() ==
         RobotState::MovingToPickup
     ) {
-        if (
-            plan.nextStep <
-            plan.pickupPath.size()
-        ) {
-            robot.moveTo(
-                plan.pickupPath[plan.nextStep]
-            );
-
-            plan.nextStep++;
-
-            std::cout
-                << "Robot "
-                << robot.getId()
-                << " moving to pickup for Task "
-                << plan.task.id
-                << " -> ("
-                << robot.getPosition().row
-                << ", "
-                << robot.getPosition().col
-                << ")\n";
-        }
-
-        if (
-            plan.nextStep >=
-            plan.pickupPath.size()
-        ) {
-            robot.setState(
-                RobotState::Carrying
-            );
-
-            std::cout
-                << "Robot "
-                << robot.getId()
-                << " picked up Task "
-                << plan.task.id
-                << ".\n";
-
-            robot.setState(
-                RobotState::MovingToDropoff
-            );
-
-            plan.nextStep = 1;
-        }
-
-        return;
+        return plan.task.pickup;
     }
 
-    // -------------------------
-    // Move toward dropoff
-    // -------------------------
+    return plan.task.dropoff;
+}
 
-    if (
-        robot.getState() ==
-        RobotState::MovingToDropoff
+
+Warehouse buildDynamicWarehouse(
+    const Warehouse& warehouse,
+    const std::vector<Robot>& robots,
+    std::size_t robotIndex
+) {
+    Warehouse dynamicWarehouse =
+        warehouse;
+
+    for (
+        std::size_t i = 0;
+        i < robots.size();
+        i++
     ) {
-        if (
-            plan.nextStep <
-            plan.dropoffPath.size()
-        ) {
-            robot.moveTo(
-                plan.dropoffPath[plan.nextStep]
-            );
-
-            plan.nextStep++;
-
-            std::cout
-                << "Robot "
-                << robot.getId()
-                << " moving to dropoff for Task "
-                << plan.task.id
-                << " -> ("
-                << robot.getPosition().row
-                << ", "
-                << robot.getPosition().col
-                << ")\n";
+        if (i == robotIndex) {
+            continue;
         }
 
-        if (
-            plan.nextStep >=
-            plan.dropoffPath.size()
-        ) {
-            std::cout
-                << "Robot "
-                << robot.getId()
-                << " completed Task "
-                << plan.task.id
-                << ".\n";
-
-            robot.setState(
-                RobotState::Idle
-            );
-
-            plan.active = false;
-            plan.nextStep = 1;
-        }
+        dynamicWarehouse.addObstacle(
+            robots[i].getPosition()
+        );
     }
+
+    return dynamicWarehouse;
+}
+
+
+Position proposeNextPosition(
+    std::size_t robotIndex,
+    const std::vector<Robot>& robots,
+    const std::vector<RobotPlan>& plans,
+    const Warehouse& warehouse
+) {
+    const Robot& robot =
+        robots[robotIndex];
+
+    const RobotPlan& plan =
+        plans[robotIndex];
+
+    Position currentPosition =
+        robot.getPosition();
+
+    if (!plan.active) {
+        return currentPosition;
+    }
+
+    Position target =
+        getTarget(
+            robot,
+            plan
+        );
+
+    Warehouse dynamicWarehouse =
+        buildDynamicWarehouse(
+            warehouse,
+            robots,
+            robotIndex
+        );
+
+    std::vector<Position> path =
+        findPath(
+            dynamicWarehouse,
+            currentPosition,
+            target
+        );
+
+    if (path.size() < 2) {
+        return currentPosition;
+    }
+
+    return path[1];
 }
 
 
@@ -239,7 +267,8 @@ void printFleetStatus(
         i < robots.size();
         i++
     ) {
-        const Robot& robot = robots[i];
+        const Robot& robot =
+            robots[i];
 
         Position position =
             robot.getPosition();
@@ -314,7 +343,7 @@ int main() {
 
     std::cout
         << "Warehouse Robot Simulator\n"
-        << "Time-step coordination enabled\n";
+        << "Collision-aware coordination enabled\n";
 
     int tick = 0;
 
@@ -329,8 +358,7 @@ int main() {
             << "\n"
             << "============================\n";
 
-        // Assign as many tasks as possible
-        // to currently idle robots.
+        // Assign tasks to all available robots.
         while (
             assignNextTask(
                 tasks,
@@ -341,14 +369,212 @@ int main() {
         ) {
         }
 
-        // Every active robot advances
-        // exactly one step this tick.
+        // Handle cases where a robot is already
+        // standing on its pickup/dropoff location.
         for (
             std::size_t i = 0;
             i < robots.size();
             i++
         ) {
-            advanceRobot(
+            processArrival(
+                robots[i],
+                plans[i]
+            );
+        }
+
+        // -----------------------------------
+        // Phase 1: propose movements
+        // -----------------------------------
+
+        std::vector<Position> proposals;
+
+        for (
+            std::size_t i = 0;
+            i < robots.size();
+            i++
+        ) {
+            proposals.push_back(
+                proposeNextPosition(
+                    i,
+                    robots,
+                    plans,
+                    warehouse
+                )
+            );
+        }
+
+        // -----------------------------------
+        // Phase 2: approve movements
+        // -----------------------------------
+
+        std::vector<bool> approved(
+            robots.size(),
+            true
+        );
+
+        std::vector<std::string> waitReasons(
+            robots.size()
+        );
+
+        // A robot that proposes its current
+        // position is simply waiting.
+        for (
+            std::size_t i = 0;
+            i < robots.size();
+            i++
+        ) {
+            if (
+                samePosition(
+                    proposals[i],
+                    robots[i].getPosition()
+                )
+            ) {
+                approved[i] = false;
+
+                if (plans[i].active) {
+                    waitReasons[i] =
+                        "no collision-free route this tick";
+                }
+            }
+        }
+
+        // Vertex conflict:
+        //
+        // Robot A -> X
+        // Robot B -> X
+        //
+        // Only one robot may enter X.
+        for (
+            std::size_t i = 0;
+            i < robots.size();
+            i++
+        ) {
+            for (
+                std::size_t j = i + 1;
+                j < robots.size();
+                j++
+            ) {
+                if (
+                    samePosition(
+                        proposals[i],
+                        robots[i].getPosition()
+                    ) ||
+                    samePosition(
+                        proposals[j],
+                        robots[j].getPosition()
+                    )
+                ) {
+                    continue;
+                }
+
+                if (
+                    samePosition(
+                        proposals[i],
+                        proposals[j]
+                    )
+                ) {
+                    std::size_t winner;
+                    std::size_t loser;
+
+                    if (
+                        robots[i].getId() <
+                        robots[j].getId()
+                    ) {
+                        winner = i;
+                        loser = j;
+                    }
+                    else {
+                        winner = j;
+                        loser = i;
+                    }
+
+                    approved[loser] = false;
+
+                    waitReasons[loser] =
+                        "destination reserved by Robot " +
+                        std::to_string(
+                            robots[winner].getId()
+                        );
+
+                    std::cout
+                        << "Collision avoided at ("
+                        << proposals[i].row
+                        << ", "
+                        << proposals[i].col
+                        << "): Robot "
+                        << robots[winner].getId()
+                        << " has priority over Robot "
+                        << robots[loser].getId()
+                        << ".\n";
+                }
+            }
+        }
+
+        // -----------------------------------
+        // Phase 3: commit approved movement
+        // -----------------------------------
+
+        for (
+            std::size_t i = 0;
+            i < robots.size();
+            i++
+        ) {
+            if (!plans[i].active) {
+                continue;
+            }
+
+            Robot& robot =
+                robots[i];
+
+            if (!approved[i]) {
+                std::cout
+                    << "Robot "
+                    << robot.getId()
+                    << " waits at ("
+                    << robot.getPosition().row
+                    << ", "
+                    << robot.getPosition().col
+                    << ")";
+
+                if (!waitReasons[i].empty()) {
+                    std::cout
+                        << " - "
+                        << waitReasons[i];
+                }
+
+                std::cout << ".\n";
+
+                continue;
+            }
+
+            robot.moveTo(
+                proposals[i]
+            );
+
+            std::cout
+                << "Robot "
+                << robot.getId()
+                << " | "
+                << robotStateToString(
+                    robot.getState()
+                )
+                << " | Task "
+                << plans[i].task.id
+                << " -> ("
+                << robot.getPosition().row
+                << ", "
+                << robot.getPosition().col
+                << ")\n";
+        }
+
+        // All movement for this tick has now
+        // happened. Process arrivals together.
+        for (
+            std::size_t i = 0;
+            i < robots.size();
+            i++
+        ) {
+            processArrival(
                 robots[i],
                 plans[i]
             );
