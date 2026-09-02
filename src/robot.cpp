@@ -39,6 +39,8 @@ std::string robotStateToString(RobotState state) {
 
         case RobotState::MovingToDropoff:
             return "Moving to dropoff";
+        case RobotState::Failed:
+            return "Failed";
     }
 
     return "Unknown";

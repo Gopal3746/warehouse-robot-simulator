@@ -64,6 +64,104 @@ Simulation::getRobots() const {
     return robots_;
 }
 
+bool Simulation::failRobot(
+    int robotId
+) {
+    for (
+        std::size_t i = 0;
+        i < robots_.size();
+        i++
+    ) {
+        Robot& robot =
+            robots_[i];
+
+        if (robot.getId() != robotId) {
+            continue;
+        }
+
+        if (
+            robot.getState() ==
+            RobotState::Failed
+        ) {
+            return false;
+        }
+
+        Position failurePosition =
+            robot.getPosition();
+
+        RobotPlan& plan =
+            plans_[i];
+
+        if (plan.active) {
+            Task recoveryTask =
+                plan.task;
+
+            bool carryingItem =
+                robot.getState() ==
+                    RobotState::Carrying ||
+                robot.getState() ==
+                    RobotState::MovingToDropoff;
+
+            if (carryingItem) {
+                recoveryTask.pickup =
+                    failurePosition;
+
+                std::cout
+                    << "Robot "
+                    << robot.getId()
+                    << " failed while carrying Task "
+                    << recoveryTask.id
+                    << ".\n";
+
+                std::cout
+                    << "Recovery pickup moved to ("
+                    << failurePosition.row
+                    << ", "
+                    << failurePosition.col
+                    << ").\n";
+            }
+            else {
+                std::cout
+                    << "Robot "
+                    << robot.getId()
+                    << " failed while traveling to Task "
+                    << recoveryTask.id
+                    << " pickup.\n";
+            }
+
+            tasks_.push(
+                recoveryTask
+            );
+
+            plan.active = false;
+
+            std::cout
+                << "Task "
+                << recoveryTask.id
+                << " returned to the task queue.\n";
+        }
+
+        robot.setState(
+            RobotState::Failed
+        );
+
+        // The failed robot is considered
+        // removed from the active warehouse floor.
+        robot.moveTo({
+            -1,
+            -1
+        });
+
+        std::cout
+            << "Robot "
+            << robot.getId()
+            << " is now unavailable.\n";
+
+        return true;
+    }
+
+    return false;
+}
 
 bool Simulation::hasPositionCollision() const {
     for (
@@ -303,6 +401,19 @@ void Simulation::printFleetStatus() const {
     ) {
         const Robot& robot =
             robots_[i];
+
+        if (
+            robot.getState() ==
+            RobotState::Failed
+        ) {
+            std::cout
+                << "Robot "
+                << robot.getId()
+                << " | Failed"
+                << " | Removed from active floor\n";
+
+            continue;
+        }
 
         Position position =
             robot.getPosition();

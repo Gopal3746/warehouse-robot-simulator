@@ -8,8 +8,10 @@ enum class RobotState {
     Idle,
     MovingToPickup,
     Carrying,
-    MovingToDropoff
+    MovingToDropoff,
+    Failed
 };
+
 
 class Robot {
 public:

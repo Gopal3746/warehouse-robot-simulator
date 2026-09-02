@@ -54,6 +54,24 @@ int main() {
         << "Warehouse Robot Simulator\n"
         << "Collision-aware coordination enabled\n";
 
+    // Run the first three ticks.
+    //
+    // By the end of Tick 2,
+    // Robot 2 has picked up Task 1.
+    for (int i = 0; i < 3; i++) {
+        simulation.tick();
+    }
+
+    std::cout
+        << "\n****************************\n"
+        << "Injecting Robot 2 failure\n"
+        << "****************************\n";
+
+    simulation.failRobot(2);
+
+    // Continue running.
+    // Another robot must eventually
+    // recover Robot 2's interrupted task.
     simulation.run();
 
     return 0;

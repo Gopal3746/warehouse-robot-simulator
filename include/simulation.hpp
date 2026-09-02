@@ -21,6 +21,8 @@ public:
     void tick();
     void run();
 
+    bool failRobot(int robotId);
+
     bool isComplete() const;
     bool hasPositionCollision() const;
 
