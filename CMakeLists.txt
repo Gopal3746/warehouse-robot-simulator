@@ -15,6 +15,7 @@ add_library(
     src/robot.cpp
     src/pathfinder.cpp
     src/dispatcher.cpp
+    src/simulation.cpp
 )
 
 target_include_directories(

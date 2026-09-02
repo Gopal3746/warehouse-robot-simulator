@@ -3,6 +3,7 @@ add_executable(
     robot_test.cpp
     pathfinder_test.cpp
     dispatcher_test.cpp
+    simulation_test.cpp
 )
 
 target_link_libraries(
