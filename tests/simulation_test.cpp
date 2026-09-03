@@ -121,8 +121,9 @@ TEST(
     EXPECT_TRUE(
         simulation.isComplete()
     );
-    
 }
+
+
 TEST(
     SimulationTest,
     ReassignsTaskAfterRobotFailure
@@ -193,5 +194,113 @@ TEST(
     EXPECT_EQ(
         simulation.getRobots()[1].getState(),
         RobotState::Failed
+    );
+
+    const SimulationMetrics& metrics =
+        simulation.getMetrics();
+
+    EXPECT_EQ(
+        metrics.failures,
+        1
+    );
+
+    EXPECT_EQ(
+        metrics.recoveredTasks,
+        1
+    );
+}
+
+
+TEST(
+    SimulationTest,
+    RecordsSimulationMetrics
+) {
+    Warehouse warehouse(3, 3);
+
+    std::vector<Robot> robots = {
+        Robot(1, {0, 0})
+    };
+
+    Simulation simulation(
+        warehouse,
+        robots
+    );
+
+    simulation.addTask({
+        1,
+        {0, 1},
+        {0, 2}
+    });
+
+    int safetyLimit = 10;
+
+    while (
+        !simulation.isComplete() &&
+        safetyLimit > 0
+    ) {
+        simulation.tick();
+        safetyLimit--;
+    }
+
+    const SimulationMetrics& metrics =
+        simulation.getMetrics();
+
+    EXPECT_TRUE(
+        simulation.isComplete()
+    );
+
+    EXPECT_EQ(
+        metrics.completedTasks,
+        1
+    );
+
+    EXPECT_EQ(
+        metrics.totalMovements,
+        2
+    );
+
+    EXPECT_EQ(
+        metrics.totalWaits,
+        0
+    );
+
+    EXPECT_EQ(
+        metrics.failures,
+        0
+    );
+
+    EXPECT_EQ(
+        metrics.recoveredTasks,
+        0
+    );
+
+    ASSERT_EQ(
+        metrics.robots.size(),
+        1u
+    );
+
+    EXPECT_EQ(
+        metrics.robots[0].robotId,
+        1
+    );
+
+    EXPECT_EQ(
+        metrics.robots[0].movementCount,
+        2
+    );
+
+    EXPECT_EQ(
+        metrics.robots[0].waitCount,
+        0
+    );
+
+    EXPECT_GT(
+        metrics.robots[0].activeTicks,
+        0
+    );
+
+    EXPECT_GT(
+        metrics.totalTicks,
+        0
     );
 }

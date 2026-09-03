@@ -9,6 +9,26 @@
 #include "warehouse.hpp"
 
 
+struct RobotMetrics {
+    int robotId = -1;
+    int activeTicks = 0;
+    int movementCount = 0;
+    int waitCount = 0;
+};
+
+
+struct SimulationMetrics {
+    int totalTicks = 0;
+    int completedTasks = 0;
+    int totalMovements = 0;
+    int totalWaits = 0;
+    int failures = 0;
+    int recoveredTasks = 0;
+
+    std::vector<RobotMetrics> robots;
+};
+
+
 class Simulation {
 public:
     Simulation(
@@ -31,6 +51,10 @@ public:
 
     const std::vector<Robot>& getRobots() const;
 
+    const SimulationMetrics& getMetrics() const;
+
+    void printMetrics() const;
+
 private:
     struct RobotPlan {
         bool active = false;
@@ -43,12 +67,15 @@ private:
     };
 
     Warehouse warehouse_;
+
     std::vector<Robot> robots_;
     std::vector<RobotPlan> plans_;
+
     std::queue<Task> tasks_;
 
     int tick_ = 0;
-    int completedTaskCount_ = 0;
+
+    SimulationMetrics metrics_;
 
     bool hasActivePlans() const;
 

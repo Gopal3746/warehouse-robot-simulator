@@ -1,5 +1,6 @@
 #include "simulation.hpp"
 
+#include <iomanip>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -15,6 +16,15 @@ Simulation::Simulation(
     : warehouse_(warehouse),
       robots_(robots),
       plans_(robots.size()) {
+
+    for (const Robot& robot : robots_) {
+        metrics_.robots.push_back({
+            robot.getId(),
+            0,
+            0,
+            0
+        });
+    }
 }
 
 
@@ -55,7 +65,13 @@ int Simulation::getTick() const {
 
 
 int Simulation::getCompletedTaskCount() const {
-    return completedTaskCount_;
+    return metrics_.completedTasks;
+}
+
+
+const SimulationMetrics&
+Simulation::getMetrics() const {
+    return metrics_;
 }
 
 
@@ -63,6 +79,7 @@ const std::vector<Robot>&
 Simulation::getRobots() const {
     return robots_;
 }
+
 
 bool Simulation::failRobot(
     int robotId
@@ -85,6 +102,8 @@ bool Simulation::failRobot(
         ) {
             return false;
         }
+
+        metrics_.failures++;
 
         Position failurePosition =
             robot.getPosition();
@@ -133,6 +152,8 @@ bool Simulation::failRobot(
                 recoveryTask
             );
 
+            metrics_.recoveredTasks++;
+
             plan.active = false;
 
             std::cout
@@ -145,8 +166,8 @@ bool Simulation::failRobot(
             RobotState::Failed
         );
 
-        // The failed robot is considered
-        // removed from the active warehouse floor.
+        // Failed robots are removed
+        // from the active warehouse floor.
         robot.moveTo({
             -1,
             -1
@@ -163,17 +184,32 @@ bool Simulation::failRobot(
     return false;
 }
 
+
 bool Simulation::hasPositionCollision() const {
     for (
         std::size_t i = 0;
         i < robots_.size();
         i++
     ) {
+        if (
+            robots_[i].getState() ==
+            RobotState::Failed
+        ) {
+            continue;
+        }
+
         for (
             std::size_t j = i + 1;
             j < robots_.size();
             j++
         ) {
+            if (
+                robots_[j].getState() ==
+                RobotState::Failed
+            ) {
+                continue;
+            }
+
             if (
                 samePosition(
                     robots_[i].getPosition(),
@@ -194,7 +230,8 @@ bool Simulation::assignNextTask() {
         return false;
     }
 
-    Task task = tasks_.front();
+    Task task =
+        tasks_.front();
 
     int selectedRobotIndex =
         findBestRobot(
@@ -305,7 +342,7 @@ void Simulation::processArrival(
 
         plan.active = false;
 
-        completedTaskCount_++;
+        metrics_.completedTasks++;
     }
 }
 
@@ -336,7 +373,11 @@ Warehouse Simulation::buildDynamicWarehouse(
         i < robots_.size();
         i++
     ) {
-        if (i == robotIndex) {
+        if (
+            i == robotIndex ||
+            robots_[i].getState() ==
+                RobotState::Failed
+        ) {
             continue;
         }
 
@@ -392,7 +433,8 @@ Position Simulation::proposeNextPosition(
 
 
 void Simulation::printFleetStatus() const {
-    std::cout << "\nFleet status:\n";
+    std::cout
+        << "\nFleet status:\n";
 
     for (
         std::size_t i = 0;
@@ -442,6 +484,80 @@ void Simulation::printFleetStatus() const {
 }
 
 
+void Simulation::printMetrics() const {
+    std::cout
+        << "\n============================\n"
+        << "Simulation Metrics\n"
+        << "============================\n";
+
+    std::cout
+        << "Total ticks: "
+        << metrics_.totalTicks
+        << '\n';
+
+    std::cout
+        << "Tasks completed: "
+        << metrics_.completedTasks
+        << '\n';
+
+    std::cout
+        << "Robot movements: "
+        << metrics_.totalMovements
+        << '\n';
+
+    std::cout
+        << "Wait events: "
+        << metrics_.totalWaits
+        << '\n';
+
+    std::cout
+        << "Robot failures: "
+        << metrics_.failures
+        << '\n';
+
+    std::cout
+        << "Recovered tasks: "
+        << metrics_.recoveredTasks
+        << '\n';
+
+    std::cout
+        << "\nPer-robot metrics:\n";
+
+    for (
+        const RobotMetrics& robotMetrics :
+        metrics_.robots
+    ) {
+        double utilization = 0.0;
+
+        if (metrics_.totalTicks > 0) {
+            utilization =
+                100.0 *
+                static_cast<double>(
+                    robotMetrics.activeTicks
+                ) /
+                static_cast<double>(
+                    metrics_.totalTicks
+                );
+        }
+
+        std::cout
+            << "Robot "
+            << robotMetrics.robotId
+            << " | Active ticks: "
+            << robotMetrics.activeTicks
+            << " | Moves: "
+            << robotMetrics.movementCount
+            << " | Waits: "
+            << robotMetrics.waitCount
+            << " | Utilization: "
+            << std::fixed
+            << std::setprecision(1)
+            << utilization
+            << "%\n";
+    }
+}
+
+
 void Simulation::tick() {
     std::cout
         << "\n============================\n"
@@ -450,13 +566,17 @@ void Simulation::tick() {
         << "\n"
         << "============================\n";
 
-    // Assign as many tasks as possible
-    // to available robots.
+    // --------------------------------
+    // Assign available tasks
+    // --------------------------------
+
     while (assignNextTask()) {
     }
 
-    // Handle robots already standing
-    // on pickup/dropoff cells.
+    // --------------------------------
+    // Process robots already at target
+    // --------------------------------
+
     for (
         std::size_t i = 0;
         i < robots_.size();
@@ -466,6 +586,20 @@ void Simulation::tick() {
             robots_[i],
             plans_[i]
         );
+    }
+
+    // --------------------------------
+    // Record utilization
+    // --------------------------------
+
+    for (
+        std::size_t i = 0;
+        i < plans_.size();
+        i++
+    ) {
+        if (plans_[i].active) {
+            metrics_.robots[i].activeTicks++;
+        }
     }
 
     // --------------------------------
@@ -497,6 +631,8 @@ void Simulation::tick() {
         robots_.size()
     );
 
+    // Robots that cannot find a movement
+    // remain in their current position.
     for (
         std::size_t i = 0;
         i < robots_.size();
@@ -517,13 +653,12 @@ void Simulation::tick() {
         }
     }
 
-    // Vertex conflicts:
+    // Vertex conflict:
     //
     // R1 -> X
     // R2 -> X
     //
-    // Lower robot ID currently wins.
-
+    // Lower robot ID gets priority.
     for (
         std::size_t i = 0;
         i < robots_.size();
@@ -568,7 +703,8 @@ void Simulation::tick() {
                     loser = i;
                 }
 
-                approved[loser] = false;
+                approved[loser] =
+                    false;
 
                 waitReasons[loser] =
                     "destination reserved by Robot " +
@@ -607,6 +743,9 @@ void Simulation::tick() {
             robots_[i];
 
         if (!approved[i]) {
+            metrics_.totalWaits++;
+            metrics_.robots[i].waitCount++;
+
             std::cout
                 << "Robot "
                 << robot.getId()
@@ -631,6 +770,9 @@ void Simulation::tick() {
             proposals[i]
         );
 
+        metrics_.totalMovements++;
+        metrics_.robots[i].movementCount++;
+
         std::cout
             << "Robot "
             << robot.getId()
@@ -647,8 +789,10 @@ void Simulation::tick() {
             << ")\n";
     }
 
-    // Process pickup/dropoff after
-    // all robots have moved.
+    // --------------------------------
+    // Process arrivals after movement
+    // --------------------------------
+
     for (
         std::size_t i = 0;
         i < robots_.size();
@@ -663,6 +807,7 @@ void Simulation::tick() {
     printFleetStatus();
 
     tick_++;
+    metrics_.totalTicks++;
 }
 
 
@@ -677,4 +822,6 @@ void Simulation::run() {
         << "============================\n";
 
     printFleetStatus();
+
+    printMetrics();
 }
